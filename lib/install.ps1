@@ -540,33 +540,37 @@ function dl_urls($app, $version, $manifest, $bucket, $architecture, $dir, $use_c
     $extracted = 0;
 
     # download first
-    if(Test-Aria2Enabled) {
-        dl_with_cache_aria2 $app $version $manifest $architecture $dir $cookies $use_cache $check_hash
+    if (Get-ScoopAppIfLocal $urls $dir) {
+
     } else {
-        foreach($url in $urls) {
-            $fname = url_filename $url
+        if(Test-Aria2Enabled) {
+            dl_with_cache_aria2 $app $version $manifest $architecture $dir $cookies $use_cache $check_hash
+        } else {
+            foreach($url in $urls) {
+                $fname = url_filename $url
 
-            try {
-                dl_with_cache $app $version $url "$dir\$fname" $cookies $use_cache
-            } catch {
-                write-host -f darkred $_
-                abort "URL $url is not valid"
-            }
+                try {
+                    dl_with_cache $app $version $url "$dir\$fname" $cookies $use_cache
+                } catch {
+                    write-host -f darkred $_
+                    abort "URL $url is not valid"
+                }
 
-            if($check_hash) {
-                $manifest_hash = hash_for_url $manifest $url $architecture
-                $ok, $err = check_hash "$dir\$fname" $manifest_hash $(show_app $app $bucket)
-                if(!$ok) {
-                    error $err
-                    $cached = cache_path $app $version $url
-                    if(test-path $cached) {
-                        # rm cached file
-                        Remove-Item -force $cached
+                if($check_hash) {
+                    $manifest_hash = hash_for_url $manifest $url $architecture
+                    $ok, $err = check_hash "$dir\$fname" $manifest_hash $(show_app $app $bucket)
+                    if(!$ok) {
+                        error $err
+                        $cached = cache_path $app $version $url
+                        if(test-path $cached) {
+                            # rm cached file
+                            Remove-Item -force $cached
+                        }
+                        if($url.Contains('sourceforge.net')) {
+                            Write-Host -f yellow 'SourceForge.net is known for causing hash validation fails. Please try again before opening a ticket.'
+                        }
+                        abort $(new_issue_msg $app $bucket "hash check failed")
                     }
-                    if($url.Contains('sourceforge.net')) {
-                        Write-Host -f yellow 'SourceForge.net is known for causing hash validation fails. Please try again before opening a ticket.'
-                    }
-                    abort $(new_issue_msg $app $bucket "hash check failed")
                 }
             }
         }
