@@ -67,10 +67,6 @@ if ($global -and !(is_admin)) {
     abort 'ERROR: you need admin rights to install global apps'
 }
 
-if (is_scoop_outdated) {
-    scoop update
-}
-
 if ($apps.length -eq 1) {
     $app, $null, $version = parse_app $apps
     if ($null -eq $version -and (is_installed $app $global)) {
