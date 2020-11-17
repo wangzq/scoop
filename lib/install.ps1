@@ -540,8 +540,8 @@ function dl_urls($app, $version, $manifest, $bucket, $architecture, $dir, $use_c
     $extracted = 0;
 
     # download first
-    if (Get-ScoopAppIfLocal $urls $dir) {
-
+    if ((Get-Command Get-ScoopAppIfLocal -EA ignore) -AND (Get-ScoopAppIfLocal $urls $dir)) {
+        # skip network download
     } else {
         if(Test-Aria2Enabled) {
             dl_with_cache_aria2 $app $version $manifest $architecture $dir $cookies $use_cache $check_hash
