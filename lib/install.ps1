@@ -546,34 +546,38 @@ function Invoke-ScoopDownload ($app, $version, $manifest, $bucket, $architecture
     # can be multiple cookies: they will be used for all HTTP requests.
     $cookies = $manifest.cookie
 
-    # download first
-    if (Test-Aria2Enabled) {
-        Invoke-CachedAria2Download $app $version $manifest $architecture $dir $cookies $use_cache $check_hash
+    if ((Get-Command Get-ScoopAppIfLocal -EA ignore) -AND (Get-ScoopAppIfLocal $urls $dir)) {
+        # skip network download
     } else {
-        foreach ($url in $urls) {
-            $fname = url_filename $url
+        # download first
+        if (Test-Aria2Enabled) {
+            Invoke-CachedAria2Download $app $version $manifest $architecture $dir $cookies $use_cache $check_hash
+        } else {
+            foreach ($url in $urls) {
+                $fname = url_filename $url
 
-            try {
-                Invoke-CachedDownload $app $version $url "$dir\$fname" $cookies $use_cache
-            } catch {
-                Write-Host -f darkred $_
-                abort "URL $url is not valid"
-            }
+                try {
+                    Invoke-CachedDownload $app $version $url "$dir\$fname" $cookies $use_cache
+                } catch {
+                    Write-Host -f darkred $_
+                    abort "URL $url is not valid"
+                }
 
-            if ($check_hash) {
-                $manifest_hash = hash_for_url $manifest $url $architecture
-                $ok, $err = check_hash "$dir\$fname" $manifest_hash $(show_app $app $bucket)
-                if (!$ok) {
-                    error $err
-                    $cached = cache_path $app $version $url
-                    if (Test-Path $cached) {
-                        # rm cached file
-                        Remove-Item -Force $cached
+                if ($check_hash) {
+                    $manifest_hash = hash_for_url $manifest $url $architecture
+                    $ok, $err = check_hash "$dir\$fname" $manifest_hash $(show_app $app $bucket)
+                    if (!$ok) {
+                        error $err
+                        $cached = cache_path $app $version $url
+                        if (Test-Path $cached) {
+                            # rm cached file
+                            Remove-Item -Force $cached
+                        }
+                        if ($url.Contains('sourceforge.net')) {
+                            Write-Host -f yellow 'SourceForge.net is known for causing hash validation fails. Please try again before opening a ticket.'
+                        }
+                        abort $(new_issue_msg $app $bucket 'hash check failed')
                     }
-                    if ($url.Contains('sourceforge.net')) {
-                        Write-Host -f yellow 'SourceForge.net is known for causing hash validation fails. Please try again before opening a ticket.'
-                    }
-                    abort $(new_issue_msg $app $bucket 'hash check failed')
                 }
             }
         }
